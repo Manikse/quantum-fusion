@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>QuantumFusion // Trapped-Ion Confinement Simulator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+        * { box-sizing: border-box; user-select: none; margin: 0; padding: 0; }
+        body, html {
+            width: 100vw; height: 100vh; overflow: hidden;
+            background: radial-gradient(circle at 50% 50%, #070d18 0%, #020306 100%);
+            font-family: 'Inter', -apple-system, sans-serif; color: #e6edf3;
+        }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        .hud-panel {
+            position: absolute; z-index: 10;
+            background: rgba(7, 11, 18, 0.8); backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 8px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Top Nav */
+        .top-nav {
+            top: 16px; left: 24px; right: 24px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 16px;
+        }
+        .nav-group { display: flex; align-items: center; gap: 8px; }
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+            font-weight: 500; padding: 6px 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s;
+        }
+        .nav-btn.active, .nav-btn:hover {
+            background: rgba(0, 240, 255, 0.1); color: #00f0ff; border-color: rgba(0, 240, 255, 0.35);
+        }
+        .nav-btn.quantum-active {
+            background: rgba(255, 0, 170, 0.12) !important; color: #ff00aa !important;
+            border-color: rgba(255, 0, 170, 0.35) !important;
+        }
+
+        .cam-btn {
+            background: transparent; border: 1px solid rgba(255, 255, 255, 0.06);
+            color: #8b949e; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            padding: 5px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s;
+        }
+        .cam-btn.active, .cam-btn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+        /* Left Card */
+        .left-card {
+            top: 74px; left: 24px; width: 320px; padding: 16px; font-family: 'JetBrains Mono', monospace;
+        }
+        .card-title { font-size: 10px; letter-spacing: 1.5px; color: #6e7681; margin-bottom: 4px; text-transform: uppercase; }
+        .card-val { font-size: 13px; color: #00f0ff; font-weight: 600; margin-bottom: 8px; }
+
+        .slider-row {
+            margin: 6px 0; background: rgba(255,255,255,0.02); padding: 6px 8px; border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+        .slider-row label {
+            display: flex; justify-content: space-between; font-size: 9.5px; color: #8b949e; margin-bottom: 3px;
+        }
+        .slider-row input[type=range] { width: 100%; accent-color: #00f0ff; cursor: pointer; }
+
+        /* Right Card */
+        .right-card {
+            top: 74px; right: 24px; width: 440px; padding: 16px 20px;
+        }
+        .hud-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 6px;
+        }
+        .status-badge {
+            font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
+            padding: 3px 8px; border-radius: 12px; letter-spacing: 0.5px;
+        }
+        .status-online { background: rgba(0, 255, 128, 0.1); color: #00ff88; border: 1px solid rgba(0, 255, 128, 0.25); }
+        .status-alert { background: rgba(255, 0, 85, 0.1); color: #ff0055; border: 1px solid rgba(255, 0, 85, 0.25); }
+        .status-defect { background: rgba(255, 170, 0, 0.12); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.25); }
+
+        /* Coil Manual Pad */
+        .coil-pad { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin: 8px 0; }
+        .coil-toggle-btn {
+            background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 4px;
+            color: #00f0ff; font-family: 'JetBrains Mono'; font-size: 9.5px; font-weight: 600;
+            padding: 5px 0; text-align: center; cursor: pointer; transition: all 0.15s;
+        }
+        .coil-toggle-btn.neg { background: rgba(255, 0, 128, 0.06); border-color: rgba(255, 0, 128, 0.25); color: #ff007f; }
+        .coil-toggle-btn.displaced { border-color: #ffaa00 !important; color: #ffaa00 !important; background: rgba(255, 170, 0, 0.08); }
+
+        /* Circuit Display */
+        .circuit-display {
+            background: rgba(3, 6, 11, 0.92); border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 6px; padding: 12px; margin-top: 8px; position: relative;
+        }
+        .wire-row {
+            display: flex; align-items: center; margin-bottom: 5px; height: 16px; position: relative;
+            cursor: pointer; border-radius: 2px; transition: background 0.15s;
+        }
+        .wire-row:hover, .wire-row.highlighted { background: rgba(0, 240, 255, 0.08); }
+        .wire-label { width: 68px; font-size: 10px; color: #8b949e; font-family: 'JetBrains Mono'; }
+        .wire-track { flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1); position: relative; }
+
+        /* Gates */
+        .gate-box {
+            position: absolute; background: #060a12; border: 1px solid rgba(0, 240, 255, 0.35);
+            color: #00f0ff; font-size: 8px; font-weight: 600; padding: 1px 4px;
+            border-radius: 2px; transform: translateY(-50%); top: 50%;
+            font-family: 'JetBrains Mono'; transition: all 0.2s; z-index: 2;
+        }
+        .gate-box.active-pulse { background: #00f0ff !important; color: #000 !important; box-shadow: 0 0 10px #00f0ff; }
+        .gate-node {
+            position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #ff00aa;
+            transform: translate(-50%, -50%); top: 50%; z-index: 2;
+        }
+        .gate-node.active-pulse { background: #fff !important; box-shadow: 0 0 8px #ff00aa; }
+        .rzz-bridge { position: absolute; width: 1px; background: rgba(255, 0, 170, 0.35); z-index: 1; }
+        .rzz-bridge.active-pulse { background: #ff00aa !important; box-shadow: 0 0 8px #ff00aa; }
+        .gate-rx { background: #0f0b18; border-color: rgba(157, 78, 221, 0.35); color: #9d4edd; }
+        .gate-meas { background: #051410; border-color: rgba(0, 255, 170, 0.35); color: #00ffaa; right: 4px; }
+        .gate-meas.active-pulse { background: #00ffaa !important; color: #000 !important; box-shadow: 0 0 10px #00ffaa; }
+
+        /* Bottom Dock */
+        .bottom-dock {
+            bottom: 22px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 10px; padding: 7px 18px; border-radius: 30px;
+        }
+        .dock-btn {
+            background: transparent; border: none; color: #8b949e; font-family: 'JetBrains Mono', monospace;
+            font-size: 11px; font-weight: 500; padding: 6px 14px; border-radius: 16px; cursor: pointer; transition: all 0.2s;
+        }
+        .dock-btn:hover, .dock-btn.active { background: rgba(255, 255, 255, 0.06); color: #ffffff; }
+        .dock-btn.danger { border: 1px solid rgba(255, 0, 85, 0.35); color: #ff0055; background: rgba(255, 0, 85, 0.06); }
+        .dock-btn.danger:hover { background: rgba(255, 0, 85, 0.15); }
+        .dock-btn.primary { border: 1px solid rgba(0, 240, 255, 0.35); color: #00f0ff; background: rgba(0, 240, 255, 0.08); font-weight: 600; }
+        .dock-btn.primary:hover { background: rgba(0, 240, 255, 0.18); }
+
+        .hint-bar {
+            position: absolute; bottom: 70px; left: 50%; transform: translateX(-50%);
+            z-index: 10; font-family: 'JetBrains Mono'; font-size: 10px; color: #6e7681;
+            background: rgba(7, 11, 18, 0.7); padding: 4px 14px; border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06); letter-spacing: 0.5px; pointer-events: none;
+        }
+
+        /* Langmuir Probe Popup */
+        #probe-card {
+            display: none; position: absolute; z-index: 25; width: 210px;
+            background: rgba(4, 7, 13, 0.92); border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 6px;
+            padding: 8px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6); pointer-events: none;
+        }
+
+        /* Qiskit Code Modal */
+        #code-modal {
+            display: none; position: absolute; top: 74px; right: 476px; width: 420px; z-index: 20;
+            background: rgba(7, 11, 18, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;
+            padding: 16px; box-shadow: 0 16px 48px rgba(0,0,0,0.8); font-family: 'JetBrains Mono', monospace;
+        }
+        #code-modal pre {
+            background: #020306; padding: 10px; border-radius: 4px; font-size: 9.5px; line-height: 1.45;
+            color: #79c0ff; overflow-x: auto; border: 1px solid rgba(255,255,255,0.04); max-height: 360px;
+        }
+
+        canvas.graph-canvas { width: 100%; height: 46px; background: rgba(0,0,0,0.25); border-radius: 4px; margin-top: 6px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <div class="hint-bar">
+        Drag coils &bull; Mousewheel on coils to tune current &bull; Click plasma for probe data
+    </div>
+
+    <div id="probe-card">
+        <div style="color: #00f0ff; font-weight: 600; margin-bottom: 3px;">LANGMUIR PROBE</div>
+        <div>Core Te: <span id="probe-temp" style="color:#ffaa00;">14.8 keV</span></div>
+        <div>Field B: <span id="probe-field" style="color:#00ff88;">5.24 T</span></div>
+        <div>Residual δB: <span id="probe-turb" style="color:#ff0055;">0.009</span></div>
+    </div>
+
+    <!-- 1. Верхній хедер -->
+    <div class="hud-panel top-nav">
+        <div class="nav-group">
+            <span style="font-family: 'JetBrains Mono'; font-size: 11px; color: #8b949e; font-weight: 500;">MODEL:</span>
+            <button class="nav-btn active" id="btn-mode-mhd" onclick="switchRegime('mhd')">Classical MHD Vessel</button>
+            <button class="nav-btn" id="btn-mode-ionq" onclick="switchRegime('ionq')">IonQ All-to-All Lattice</button>
+        </div>
+
+        <div class="nav-group">
+            <button class="cam-btn" onclick="toggleCodeModal()">[</>] Qiskit Script</button>
+            <span style="font-family: 'JetBrains Mono'; font-size: 10px; color: #6e7681; margin-left: 6px;">CAM:</span>
+            <button class="cam-btn active" id="c-orbit" onclick="setCam('orbit')">Orbit</button>
+            <button class="cam-btn" id="c-top" onclick="setCam('top')">Top</button>
+            <button class="cam-btn" id="c-cross" onclick="setCam('cross')">Cross-Section</button>
+            <button class="cam-btn active" id="btn-audio" onclick="toggleAudio()" style="margin-left: 6px;">Audio: ON</button>
+        </div>
+    </div>
+
+    <!-- 2. Ліва картка -->
+    <div class="hud-panel left-card" id="left-display"></div>
+
+    <!-- 3. Права картка -->
+    <div class="hud-panel right-card">
+        <div class="hud-header">
+            <div>
+                <span style="font-family: 'JetBrains Mono'; font-size: 10px; letter-spacing: 1.5px; color: #8b949e;">IONQ ARIA-1 BACKEND</span>
+                <div style="font-size: 15px; font-weight: 600; color: #fff;">ITER Tokamak 8-Coil Register</div>
+            </div>
+            <span id="status-tag" class="status-badge status-online">CONFINED // STABLE</span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 4px;">
+            <span style="font-family: 'JetBrains Mono'; font-size: 9px; color: #8b949e;">COIL CURRENTS (WHEEL OVER BUTTON):</span>
+            <span id="leakage-metric-lbl" style="font-family: 'JetBrains Mono'; font-size: 9px; color: #00f0ff;">Error: 0.04 a.u.</span>
+        </div>
+        <div class="coil-pad" id="coil-pad-container"></div>
+
+        <div class="circuit-display" id="circuit-container">
+            <div id="pipeline-stage-label" style="font-family: 'JetBrains Mono'; font-size: 9px; color: #00f0ff; margin-bottom: 6px;">
+                IONQ ANSATZ: H &rarr; R<sub>ZZ</sub>(2&gamma;J) &rarr; RX(2&beta;) &rarr; MEASURE
+            </div>
+            <div id="wire-list"></div>
+
+            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-family: 'JetBrains Mono'; font-size: 11px;">
+                <span style="color: #8b949e;">MEASURED STATE:</span>
+                <span id="outcome-str" style="color: #00f0ff; font-weight: 600; letter-spacing: 2px;">10101010</span>
+            </div>
+            <div style="width: 100%; height: 2px; background: rgba(255,255,255,0.06); margin-top: 6px; border-radius: 2px; overflow: hidden;">
+                <div id="outcome-progress" style="height: 100%; width: 98%; background: linear-gradient(90deg, #00f0ff, #7928ca); transition: width 0.3s ease;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Qiskit Code Modal -->
+    <div class="hud-panel" id="code-modal">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 11px; color: #00f0ff; font-weight: 600;">src/quantum/qaoa_solver.py</span>
+            <button onclick="toggleCodeModal()" style="background:none; border:none; color:#8b949e; cursor:pointer; font-family:'JetBrains Mono'; font-size:12px;">&times;</button>
+        </div>
+        <pre><code>from qiskit import QuantumCircuit
+from qiskit_ionq import IonQProvider
+
+# Native 8-Qubit Trapped-Ion QAOA Ansatz
+qc = QuantumCircuit(8, 8)
+qc.h(range(8))
+
+# Dense Biot-Savart coupling matrix J
+# Zero SWAP overhead via IonQ All-to-All connectivity
+for m in range(8):
+    for l in range(m + 1, 8):
+        qc.rzz(2.0 * gamma * J[m, l], m, l)
+
+# Transverse mixer
+for m in range(8):
+    qc.rx(2.0 * beta, m)
+
+qc.measure(range(8), range(8))
+# Backend: IonQ Aria-1 (25 Qubits)</code></pre>
+    </div>
+
+    <!-- 5. Нижній док -->
+    <div class="hud-panel bottom-dock">
+        <button class="dock-btn danger" onclick="injectMHDInstability()">[!] Trigger Tearing Mode</button>
+        <button class="dock-btn primary" onclick="runIonQOptimizer()">&bull; IonQ QAOA Stabilization</button>
+        <button class="dock-btn" onclick="snapAllCoilsBack()">Reset Geometry</button>
+    </div>
+
+    <script>
+        let audioCtx = null;
+        let audioEnabled = true; // Аудіо увімкнене за замовчуванням
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Автоматична ініціалізація аудіо при першому кліку миші
+        window.addEventListener('pointerdown', () => {
+            if (audioEnabled) initAudio();
+        }, { once: false });
+
+        function playTone(freq, type, duration, gainVal = 0.06) {
+            if (!audioEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            const btn = document.getElementById('btn-audio');
+            btn.innerText = audioEnabled ? 'Audio: ON' : 'Audio: OFF';
+            btn.classList.toggle('active', audioEnabled);
+            if (audioEnabled) initAudio();
+        }
+
+        function toggleCodeModal() {
+            const m = document.getElementById('code-modal');
+            m.style.display = m.style.display === 'block' ? 'none' : 'block';
+        }
+
+        let activeRegime = 'mhd';
+        let isDisrupted = false;
+
+        let coilCurrents = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+        let cutawayAngle = 0;
+        let flowSpeed = 0.65;
+        let safetyFactorQ = 2.0;
+
+        const numCoils = 8;
+        const R_nominal = 2.28;
+        const coilNominalPos = [];
+        const coilCurrentPos = [];
+        const coilDisplacements = new Array(numCoils).fill(0);
+
+        for (let m = 0; m < numCoils; m++) {
+            const phi = (m / numCoils) * Math.PI * 2;
+            const pos = new THREE.Vector3(R_nominal * Math.cos(phi), 0, R_nominal * Math.sin(phi));
+            coilNominalPos.push(pos.clone());
+            coilCurrentPos.push(pos.clone());
+        }
+
+        function switchRegime(r) {
+            activeRegime = r;
+            document.getElementById('btn-mode-mhd').classList.toggle('active', r === 'mhd');
+            document.getElementById('btn-mode-ionq').classList.toggle('active', r === 'ionq');
+            document.getElementById('btn-mode-ionq').classList.toggle('quantum-active', r === 'ionq');
+            entanglementGroup.visible = (r === 'ionq');
+            vesselMesh.visible = (r === 'mhd');
+            playTone(r === 'mhd' ? 320 : 580, 'sine', 0.2, 0.06);
+            updateLeftDisplay();
+            updateStatusTag();
+        }
+
+        function setCam(view) {
+            ['orbit', 'top', 'cross'].forEach(v => {
+                document.getElementById('c-' + v).classList.toggle('active', v === view);
+            });
+            if (view === 'orbit') {
+                camera.position.set(0, 2.8, 5.0);
+                controls.target.set(0, 0, 0);
+            } else if (view === 'top') {
+                camera.position.set(0, 6.8, 0.01);
+                controls.target.set(0, 0, 0);
+            } else if (view === 'cross') {
+                camera.position.set(5.5, 0.1, 0);
+                controls.target.set(0, 0, 0);
+            }
+        }
+
+        function updateLeftDisplay() {
+            const container = document.getElementById('left-display');
+            const maxDispIdx = coilDisplacements.indexOf(Math.max(...coilDisplacements));
+            const maxDispVal = coilDisplacements[maxDispIdx];
+
+            if (maxDispVal > 0.15) {
+                container.innerHTML = `
+                    <div class="card-title">ASYMMETRIC COIL FAULT</div>
+                    <div class="card-val" style="color: #ffaa00;">Coil #${maxDispIdx} Displaced: +${maxDispVal.toFixed(2)}m</div>
+                    <div style="font-size: 11px; line-height: 1.5; color: #c9d1d9;">
+                        • Local Biot-Savart null formed at &phi; = ${(maxDispIdx * 45)}&deg;.<br>
+                        • Plasma thermal flux approaches first wall limiter.<br>
+                        • <strong style="color:#00ffaa;">IonQ Mitigation:</strong> Asymmetric QAOA state compensation via pairwise R<sub>ZZ</sub> phase shifts.
+                    </div>
+                    <div class="card-title" style="margin-top: 10px;">WALL RESIDUAL FIELD:</div>
+                    <canvas id="graph-canvas" class="graph-canvas"></canvas>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="card-title">CAD VESSEL & CORE TUNING</div>
+                    <div class="card-val">${activeRegime === 'mhd' ? 'MHD Plasma Core' : 'IonQ Trapped Lattice'}</div>
+                    
+                    <div class="slider-row">
+                        <label><span>Toroidal Cutaway (Slicer):</span><span id="lbl-cutaway" style="color:#00f0ff;">${cutawayAngle}&deg;</span></label>
+                        <input type="range" min="0" max="180" step="5" value="${cutawayAngle}" oninput="onCutawayChange(this.value)">
+                    </div>
+
+                    <div class="slider-row">
+                        <label><span>Safety Factor q:</span><span id="lbl-q" style="color:#00ff88;">${safetyFactorQ.toFixed(2)}</span></label>
+                        <input type="range" min="1.1" max="3.8" step="0.1" value="${safetyFactorQ}" oninput="onQChange(this.value)">
+                    </div>
+
+                    <div class="slider-row">
+                        <label><span>Flow Velocity:</span><span id="lbl-speed" style="color:#ff00aa;">${flowSpeed.toFixed(2)}x</span></label>
+                        <input type="range" min="0.2" max="1.5" step="0.05" value="${flowSpeed}" oninput="onSpeedChange(this.value)">
+                    </div>
+
+                    <div class="card-title" style="margin-top: 8px;">CORE OSCILLATIONS / SPECTRUM:</div>
+                    <canvas id="graph-canvas" class="graph-canvas"></canvas>
+                `;
+            }
+        }
+
+        function onCutawayChange(v) {
+            cutawayAngle = parseInt(v);
+            document.getElementById('lbl-cutaway').innerText = cutawayAngle + '°';
+        }
+        function onQChange(v) {
+            safetyFactorQ = parseFloat(v);
+            document.getElementById('lbl-q').innerText = safetyFactorQ.toFixed(2);
+        }
+        function onSpeedChange(v) {
+            flowSpeed = parseFloat(v);
+            document.getElementById('lbl-speed').innerText = flowSpeed.toFixed(2) + 'x';
+        }
+
+        function renderManualCoilPad() {
+            const pad = document.getElementById('coil-pad-container');
+            let html = '';
+            for (let i = 0; i < 8; i++) {
+                const val = coilCurrents[i];
+                const isDisp = coilDisplacements[i] > 0.15;
+                const cls = (val >= 0 ? '' : 'neg') + (isDisp ? ' displaced' : '');
+                const sign = (val >= 0 ? '+' : '') + val.toFixed(1) + 'k';
+                html += `<div class="coil-toggle-btn ${cls}" id="coil-btn-${i}" onclick="toggleCoilManual(${i})" onwheel="onCoilWheel(event, ${i})">C${i}${isDisp ? '⚠️' : ''}<br>${sign}</div>`;
+            }
+            pad.innerHTML = html;
+        }
+
+        function toggleCoilManual(idx) {
+            coilCurrents[idx] = -coilCurrents[idx];
+            playTone(coilCurrents[idx] >= 0 ? 560 : 360, 'sine', 0.08, 0.05);
+            renderManualCoilPad();
+            updateCoilVisuals();
+            updateMetrics();
+        }
+
+        function onCoilWheel(event, idx) {
+            event.preventDefault();
+            const delta = event.deltaY < 0 ? 0.2 : -0.2;
+            coilCurrents[idx] = Math.max(-2.0, Math.min(2.0, parseFloat((coilCurrents[idx] + delta).toFixed(1))));
+            playTone(400 + coilCurrents[idx] * 80, 'triangle', 0.04, 0.03);
+            renderManualCoilPad();
+            updateCoilVisuals();
+            updateMetrics();
+        }
+
+        function renderRealisticCircuit() {
+            const wireList = document.getElementById('wire-list');
+            let html = '';
+
+            for (let i = 0; i < 8; i++) {
+                html += `
+                    <div class="wire-row" id="wire-row-${i}" onmouseenter="highlightQubitLasers(${i})" onmouseleave="unhighlightQubitLasers()">
+                        <span class="wire-label">q${i}-Coil ${i}</span>
+                        <div class="wire-track">
+                            <span class="gate-box gate-h" style="left: 6%;">H</span>
+                            <span class="gate-box gate-rx" style="left: 74%;">RX</span>
+                            <span class="gate-box gate-meas" style="right: 4px;">M</span>
+                        </div>
+                    </div>
+                `;
+            }
+            wireList.innerHTML = html;
+
+            const cContainer = document.getElementById('circuit-container');
+            cContainer.querySelectorAll('.rzz-elem').forEach(e => e.remove());
+
+            const pairs = [
+                {q1: 0, q2: 1, x: 22},
+                {q1: 2, q2: 3, x: 28},
+                {q1: 4, q2: 5, x: 34},
+                {q1: 6, q2: 7, x: 40},
+                {q1: 0, q2: 4, x: 48},
+                {q1: 1, q2: 5, x: 54},
+                {q1: 2, q2: 6, x: 60},
+                {q1: 3, q2: 7, x: 66}
+            ];
+
+            const rowHeight = 21;
+            const startTop = 38;
+
+            pairs.forEach(p => {
+                const topY = startTop + p.q1 * rowHeight + 8;
+                const bottomY = startTop + p.q2 * rowHeight + 8;
+                const height = bottomY - topY;
+
+                const bridge = document.createElement('div');
+                bridge.className = 'rzz-bridge rzz-elem';
+                bridge.style.left = p.x + '%';
+                bridge.style.top = topY + 'px';
+                bridge.style.height = height + 'px';
+                cContainer.appendChild(bridge);
+
+                const n1 = document.createElement('div');
+                n1.className = 'gate-node rzz-elem';
+                n1.style.left = p.x + '%';
+                n1.style.top = topY + 'px';
+                cContainer.appendChild(n1);
+
+                const n2 = document.createElement('div');
+                n2.className = 'gate-node rzz-elem';
+                n2.style.left = p.x + '%';
+                n2.style.top = bottomY + 'px';
+                cContainer.appendChild(n2);
+            });
+        }
+
+        function highlightQubitLasers(qIdx) {
+            if (!entanglementGroup.visible) return;
+            entanglementLines.forEach(l => {
+                if (l.userData.from === qIdx || l.userData.to === qIdx) {
+                    l.material.opacity = 0.85;
+                    l.material.color.setHex(0x00f0ff);
+                } else {
+                    l.material.opacity = 0.05;
+                    l.material.color.setHex(0xff00aa);
+                }
+            });
+            coilMeshes[qIdx].scale.set(1.18, 1.18, 1.18);
+        }
+
+        function unhighlightQubitLasers() {
+            if (!entanglementGroup.visible) return;
+            entanglementLines.forEach(l => {
+                l.material.opacity = 0.28;
+                l.material.color.setHex(0xff00aa);
+            });
+            coilMeshes.forEach(m => m.scale.set(1, 1, 1));
+        }
+
+        function updateMetrics() {
+            const bitString = coilCurrents.map(c => c >= 0 ? '0' : '1').join('');
+            document.getElementById('outcome-str').innerText = bitString;
+
+            let leakage = 0;
+            for (let i = 0; i < 8; i++) {
+                if (Math.sign(coilCurrents[i]) === Math.sign(coilCurrents[(i + 1) % 8])) leakage += 0.35;
+                if (coilDisplacements[i] > 0.15) leakage += coilDisplacements[i] * 0.9;
+            }
+            if (isDisrupted) leakage += 1.4;
+
+            document.getElementById('leakage-metric-lbl').innerText = `Error: ${leakage.toFixed(3)} a.u.`;
+            document.getElementById('outcome-progress').style.width = Math.max(10, Math.min(100, 100 - leakage * 20)) + '%';
+            updateStatusTag();
+        }
+
+        function updateStatusTag() {
+            const hasDisplaced = Math.max(...coilDisplacements) > 0.15;
+            const statusTag = document.getElementById('status-tag');
+            if (hasDisplaced) {
+                statusTag.className = "status-badge status-defect";
+                statusTag.innerText = "WARNING // COIL FAULT";
+            } else if (isDisrupted) {
+                statusTag.className = "status-badge status-alert";
+                statusTag.innerText = "CRITICAL // UNSTABLE";
+            } else {
+                statusTag.className = "status-badge status-online";
+                statusTag.innerText = "CONFINED // STABLE";
+            }
+        }
+
+        function injectMHDInstability() {
+            isDisrupted = true;
+            playTone(130, 'sawtooth', 0.5, 0.12);
+            updateMetrics();
+            updateLeftDisplay();
+        }
+
+        function runIonQOptimizer() {
+            const stageLabel = document.getElementById('pipeline-stage-label');
+
+            stageLabel.innerText = "STAGE 1/4: INITIALIZING |+>⁸ REGISTER";
+            document.querySelectorAll('.gate-h').forEach(el => el.classList.add('active-pulse'));
+            playTone(320, 'sine', 0.25, 0.06);
+
+            setTimeout(() => {
+                document.querySelectorAll('.gate-h').forEach(el => el.classList.remove('active-pulse'));
+                stageLabel.innerText = "STAGE 2/4: NATIVE RZZ ENTAGLEMENT";
+                document.querySelectorAll('.rzz-elem').forEach(el => el.classList.add('active-pulse'));
+                playTone(480, 'triangle', 0.25, 0.06);
+            }, 550);
+
+            setTimeout(() => {
+                document.querySelectorAll('.rzz-elem').forEach(el => el.classList.remove('active-pulse'));
+                stageLabel.innerText = "STAGE 3/4: TRANSVERSE MIXER ROTATIONS RX(2β)";
+                document.querySelectorAll('.gate-rx').forEach(el => el.classList.add('active-pulse'));
+                playTone(640, 'sawtooth', 0.25, 0.05);
+            }, 1100);
+
+            setTimeout(() => {
+                document.querySelectorAll('.gate-rx').forEach(el => el.classList.remove('active-pulse'));
+                stageLabel.innerText = "STAGE 4/4: MEASURING QUANTUM BITSTRING";
+                document.querySelectorAll('.gate-meas').forEach(el => el.classList.add('active-pulse'));
+                playTone(880, 'sine', 0.35, 0.1);
+            }, 1650);
+
+            setTimeout(() => {
+                document.querySelectorAll('.gate-meas').forEach(el => el.classList.remove('active-pulse'));
+                stageLabel.innerText = "STABILIZED // r = 0.9842 (DEPTH 24)";
+
+                coilCurrents = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0];
+                isDisrupted = false;
+
+                renderManualCoilPad();
+                updateCoilVisuals();
+                updateMetrics();
+                updateLeftDisplay();
+            }, 2100);
+        }
+
+        function snapAllCoilsBack() {
+            for (let m = 0; m < numCoils; m++) {
+                coilCurrentPos[m].copy(coilNominalPos[m]);
+                coilMeshes[m].position.copy(coilNominalPos[m]);
+                coilDisplacements[m] = 0;
+            }
+            playTone(600, 'sine', 0.15, 0.06);
+            renderManualCoilPad();
+            updateCoilVisuals();
+            updateMetrics();
+            updateLeftDisplay();
+        }
+
+        // --- Three.js Engine ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x040810, 0.065);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2.8, 5.0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.autoRotate = false;
+
+        // Вакуумна камера
+        const vesselGeo = new THREE.TorusGeometry(1.65, 0.88, 16, 48);
+        const vesselMat = new THREE.MeshBasicMaterial({
+            color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.035
+        });
+        const vesselMesh = new THREE.Mesh(vesselGeo, vesselMat);
+        vesselMesh.rotation.x = Math.PI / 2;
+        scene.add(vesselMesh);
+
+        // Langmuir Probe Marker
+        const probeMarkerGeo = new THREE.SphereGeometry(0.035, 16, 16);
+        const probeMarkerMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+        const probeMarker = new THREE.Mesh(probeMarkerGeo, probeMarkerMat);
+        probeMarker.visible = false;
+        scene.add(probeMarker);
+
+        // Ламінарні плазмові частки
+        const numParticles = 4400;
+        const linePositions = new Float32Array(numParticles * 6);
+        const lineColors = new Float32Array(numParticles * 6);
+        const particlesData = [];
+
+        for (let i = 0; i < numParticles; i++) {
+            particlesData.push({
+                theta: Math.random() * Math.PI * 2,
+                phi: Math.random() * Math.PI * 2,
+                rOffset: (Math.random() - 0.5) * 0.24,
+                speedPhi: 0.012 + Math.random() * 0.008,
+                speedTheta: 0.022 + Math.random() * 0.012,
+                trailLength: 0.07 + Math.random() * 0.04
+            });
+        }
+
+        const particleGeo = new THREE.BufferGeometry();
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+        particleGeo.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+
+        const particleMat = new THREE.LineBasicMaterial({
+            vertexColors: true, transparent: true, opacity: 0.88,
+            blending: THREE.AdditiveBlending, linewidth: 1.5
+        });
+
+        const particleSystem = new THREE.LineSegments(particleGeo, particleMat);
+        scene.add(particleSystem);
+
+        // Лімітерні кільця
+        function createRing(radius, yOffset, hexColor, opacity) {
+            const ringGeo = new THREE.RingGeometry(radius - 0.01, radius + 0.01, 128);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: hexColor, side: THREE.DoubleSide, transparent: true,
+                opacity: opacity, blending: THREE.AdditiveBlending
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = yOffset;
+            return ring;
+        }
+        scene.add(createRing(1.65 * 1.05, 0.45, 0x00f0ff, 0.4));
+        scene.add(createRing(1.65 * 1.05, -0.45, 0x00f0ff, 0.4));
+        scene.add(createRing(1.65 * 1.38, 0.0, 0xff00aa, 0.28));
+
+        // Котушки
+        const coilMeshes = [];
+        for (let m = 0; m < numCoils; m++) {
+            const phiCoil = (m / numCoils) * Math.PI * 2;
+            const torusGeo = new THREE.TorusGeometry(0.34, 0.03, 16, 64);
+            const torusMat = new THREE.MeshBasicMaterial({
+                color: coilCurrents[m] >= 0 ? 0x00f0ff : 0xff007f,
+                transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending
+            });
+            const coilMesh = new THREE.Mesh(torusGeo, torusMat);
+            coilMesh.position.copy(coilNominalPos[m]);
+            coilMesh.rotation.y = -phiCoil;
+            coilMesh.userData = { coilIndex: m };
+            scene.add(coilMesh);
+            coilMeshes.push(coilMesh);
+        }
+
+        function updateCoilVisuals() {
+            for (let m = 0; m < numCoils; m++) {
+                const isDisp = coilDisplacements[m] > 0.15;
+                if (isDisp) {
+                    coilMeshes[m].material.color.setHex(0xffaa00);
+                } else {
+                    const c = coilCurrents[m];
+                    coilMeshes[m].material.color.setHex(c >= 0 ? 0x00f0ff : 0xff007f);
+                    coilMeshes[m].material.opacity = 0.35 + 0.28 * Math.abs(c);
+                }
+            }
+        }
+
+        // Сітка заплутаності All-to-All IonQ
+        const entanglementGroup = new THREE.Group();
+        const entanglementLines = [];
+
+        for (let i = 0; i < numCoils; i++) {
+            for (let j = i + 1; j < numCoils; j++) {
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    coilCurrentPos[i], coilCurrentPos[j]
+                ]);
+                const lineMat = new THREE.LineBasicMaterial({
+                    color: 0xff00aa, transparent: true, opacity: 0.28,
+                    blending: THREE.AdditiveBlending
+                });
+                const line = new THREE.Line(lineGeo, lineMat);
+                line.userData = { from: i, to: j };
+                entanglementGroup.add(line);
+                entanglementLines.push(line);
+            }
+        }
+        entanglementGroup.visible = false;
+        scene.add(entanglementGroup);
+
+        function updateEntanglementMesh() {
+            if (!entanglementGroup.visible) return;
+            entanglementLines.forEach(l => {
+                const i = l.userData.from;
+                const j = l.userData.to;
+                l.geometry.setFromPoints([coilCurrentPos[i], coilCurrentPos[j]]);
+                const distDrop = 1.0 / (1.0 + coilDisplacements[i] + coilDisplacements[j]);
+                l.material.opacity = 0.28 * distDrop;
+            });
+        }
+
+        // Drag-and-Drop & Probe
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        const planeIntersect = new THREE.Vector3();
+
+        let draggedIndex = null;
+        let isDragging = false;
+
+        window.addEventListener('wheel', (e) => {
+            if (e.target.closest('.hud-panel')) return;
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(coilMeshes);
+            if (intersects.length > 0) {
+                const cIdx = intersects[0].object.userData.coilIndex;
+                onCoilWheel(e, cIdx);
+            }
+        }, { passive: false });
+
+        window.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('.hud-panel')) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const coilHits = raycaster.intersectObjects(coilMeshes);
+            if (coilHits.length > 0) {
+                draggedIndex = coilHits[0].object.userData.coilIndex;
+                isDragging = true;
+                controls.enabled = false;
+                playTone(520, 'square', 0.06, 0.04);
+                return;
+            }
+
+            if (raycaster.ray.intersectPlane(dragPlane, planeIntersect)) {
+                const distToCenter = planeIntersect.length();
+                if (distToCenter > 1.2 && distToCenter < 2.1) {
+                    probeMarker.position.copy(planeIntersect);
+                    probeMarker.visible = true;
+
+                    const pCard = document.getElementById('probe-card');
+                    pCard.style.display = 'block';
+                    pCard.style.left = (e.clientX + 14) + 'px';
+                    pCard.style.top = (e.clientY - 20) + 'px';
+
+                    const temp = (12.0 + Math.random() * 4.5).toFixed(1);
+                    const bVal = (5.1 + Math.random() * 0.4).toFixed(2);
+                    const turb = isDisrupted ? '0.084 (HIGH)' : '0.009 (NORMAL)';
+                    document.getElementById('probe-temp').innerText = temp + ' keV';
+                    document.getElementById('probe-field').innerText = bVal + ' T';
+                    document.getElementById('probe-turb').innerText = turb;
+
+                    playTone(840, 'sine', 0.1, 0.05);
+                } else {
+                    document.getElementById('probe-card').style.display = 'none';
+                    probeMarker.visible = false;
+                }
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            if (!isDragging || draggedIndex === null) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            if (raycaster.ray.intersectPlane(dragPlane, planeIntersect)) {
+                coilCurrentPos[draggedIndex].copy(planeIntersect);
+                coilMeshes[draggedIndex].position.copy(planeIntersect);
+
+                const nominal = coilNominalPos[draggedIndex];
+                coilDisplacements[draggedIndex] = planeIntersect.distanceTo(nominal);
+
+                updateCoilVisuals();
+                updateEntanglementMesh();
+                renderManualCoilPad();
+                updateMetrics();
+                updateLeftDisplay();
+            }
+        });
+
+        window.addEventListener('pointerup', () => {
+            if (isDragging) {
+                isDragging = false;
+                draggedIndex = null;
+                controls.enabled = true;
+            }
+        });
+
+        window.addEventListener('dblclick', (e) => {
+            if (e.target.closest('.hud-panel')) return;
+
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(coilMeshes);
+            if (intersects.length > 0) {
+                const idx = intersects[0].object.userData.coilIndex;
+                coilCurrentPos[idx].copy(coilNominalPos[idx]);
+                coilMeshes[idx].position.copy(coilNominalPos[idx]);
+                coilDisplacements[idx] = 0;
+                playTone(640, 'sine', 0.15, 0.06);
+
+                updateCoilVisuals();
+                updateEntanglementMesh();
+                renderManualCoilPad();
+                updateMetrics();
+                updateLeftDisplay();
+            }
+        });
+
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            controls.update();
+
+            const R = 1.65;
+            const r_base = 0.52;
+
+            const posAttr = particleGeo.attributes.position;
+            const colAttr = particleGeo.attributes.color;
+
+            const cutawayRad = (cutawayAngle / 180) * Math.PI;
+
+            for (let i = 0; i < numParticles; i++) {
+                const p = particlesData[i];
+                p.phi += p.speedPhi * flowSpeed;
+                p.theta += (p.speedTheta * flowSpeed) / (safetyFactorQ / 2.0);
+
+                let normPhi = p.phi % (Math.PI * 2);
+                if (normPhi < 0) normPhi += Math.PI * 2;
+                if (cutawayAngle > 0 && normPhi < cutawayRad) {
+                    const idx = i * 6;
+                    posAttr.array[idx] = 0; posAttr.array[idx+1] = 0; posAttr.array[idx+2] = 0;
+                    posAttr.array[idx+3] = 0; posAttr.array[idx+4] = 0; posAttr.array[idx+5] = 0;
+                    continue;
+                }
+
+                let coilMagneticForce = 0;
+                for (let m = 0; m < numCoils; m++) {
+                    const phiCoil = (m / numCoils) * Math.PI * 2;
+                    let dPhi = p.phi - phiCoil;
+                    dPhi = Math.atan2(Math.sin(dPhi), Math.cos(dPhi));
+                    const proximity = Math.exp(-(dPhi * dPhi) / 0.28);
+                    const dispDrop = 1.0 / (1.0 + coilDisplacements[m] * 3.0);
+                    coilMagneticForce += (coilCurrents[m] * -0.065) * proximity * dispDrop;
+                }
+
+                let displacementBulge = 0;
+                for (let m = 0; m < numCoils; m++) {
+                    const disp = coilDisplacements[m];
+                    if (disp > 0.05) {
+                        const coilPhi = (m / numCoils) * Math.PI * 2;
+                        let dPhi = Math.abs(p.phi - coilPhi);
+                        if (dPhi > Math.PI) dPhi = 2 * Math.PI - dPhi;
+                        if (dPhi < 0.6) {
+                            displacementBulge += disp * (1.0 - dPhi / 0.6) * 0.75;
+                        }
+                    }
+                }
+
+                let radialPerturb = 0;
+                if (activeRegime === 'mhd') {
+                    const mhdWave = isDisrupted ? (0.22 * Math.sin(2 * p.theta - p.phi + time * 4.0)) : 0.0;
+                    radialPerturb = mhdWave + coilMagneticForce + displacementBulge;
+                } else {
+                    radialPerturb = 0.1 * Math.sin(3 * p.theta + Math.sin(time * 2.0 + i)) * Math.cos(2 * p.phi) + coilMagneticForce + (displacementBulge * 0.4);
+                }
+
+                const currR = Math.max(0.2, r_base + p.rOffset + radialPerturb);
+
+                const xHead = (R + currR * Math.cos(p.theta)) * Math.cos(p.phi);
+                const yHead = currR * Math.sin(p.theta);
+                const zHead = (R + currR * Math.cos(p.theta)) * Math.sin(p.phi);
+
+                const prevPhi = p.phi - p.trailLength;
+                const prevTheta = p.theta - p.trailLength * 1.4;
+                const xTail = (R + currR * Math.cos(prevTheta)) * Math.cos(prevPhi);
+                const yTail = currR * Math.sin(prevTheta);
+                const zTail = (R + currR * Math.cos(prevTheta)) * Math.sin(prevPhi);
+
+                const idx = i * 6;
+                posAttr.array[idx] = xTail; posAttr.array[idx + 1] = yTail; posAttr.array[idx + 2] = zTail;
+                posAttr.array[idx + 3] = xHead; posAttr.array[idx + 4] = yHead; posAttr.array[idx + 5] = zHead;
+
+                if (displacementBulge > 0.15 || radialPerturb > 0.18) {
+                    colAttr.array[idx] = 0.95; colAttr.array[idx + 1] = 0.15; colAttr.array[idx + 2] = 0.05;
+                    colAttr.array[idx + 3] = 1.0; colAttr.array[idx + 4] = 0.45 + 0.3 * Math.sin(time * 8.0 + i); colAttr.array[idx + 5] = 0.1;
+                } else if (activeRegime === 'ionq') {
+                    colAttr.array[idx] = 0.6; colAttr.array[idx + 1] = 0.0; colAttr.array[idx + 2] = 0.85;
+                    colAttr.array[idx + 3] = 0.2 + 0.5 * Math.sin(p.theta * 2.0); colAttr.array[idx + 4] = 0.85; colAttr.array[idx + 5] = 1.0;
+                } else if (isDisrupted) {
+                    colAttr.array[idx] = 0.55; colAttr.array[idx + 1] = 0.0; colAttr.array[idx + 2] = 0.15;
+                    colAttr.array[idx + 3] = 0.95; colAttr.array[idx + 4] = 0.1 + 0.2 * Math.sin(time * 4.0 + i); colAttr.array[idx + 5] = 0.3;
+                } else {
+                    colAttr.array[idx] = 0.0; colAttr.array[idx + 1] = 0.35; colAttr.array[idx + 2] = 0.75;
+                    colAttr.array[idx + 3] = 0.15; colAttr.array[idx + 4] = 0.85; colAttr.array[idx + 5] = 0.95;
+                }
+            }
+
+            posAttr.needsUpdate = true;
+            colAttr.needsUpdate = true;
+            renderer.render(scene, camera);
+
+            drawGraph(time);
+        }
+
+        function drawGraph(time) {
+            const cv = document.getElementById('graph-canvas');
+            if (!cv) return;
+            const ctx = cv.getContext('2d');
+            ctx.clearRect(0, 0, cv.width, cv.height);
+
+            const hasDisp = Math.max(...coilDisplacements) > 0.15;
+
+            if (hasDisp) {
+                ctx.strokeStyle = '#ffaa00';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let x = 0; x < cv.width; x++) {
+                    const bump = Math.exp(-((x - cv.width/2)**2) / 250) * 18;
+                    const y = cv.height / 2 + bump * Math.sin(time * 8.0) + 3 * Math.sin(x * 0.2);
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            } else if (activeRegime === 'ionq') {
+                for (let x = 0; x < cv.width; x += 4) {
+                    const prob = Math.sin(x * 0.08 + time * 3.0) ** 2;
+                    ctx.fillStyle = `rgba(255, 0, 170, ${prob * 0.8})`;
+                    ctx.fillRect(x, cv.height - prob * 35, 2.5, prob * 35);
+                }
+            } else {
+                ctx.strokeStyle = isDisrupted ? '#ff0055' : '#00f0ff';
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                for (let x = 0; x < cv.width; x++) {
+                    const amp = isDisrupted ? 14 : 4;
+                    const y = cv.height / 2 + amp * Math.sin(x * 0.1 + time * 5.0);
+                    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        renderRealisticCircuit();
+        renderManualCoilPad();
+        switchRegime('mhd');
+        animate();
+    </script>
+</body>
+</html>
