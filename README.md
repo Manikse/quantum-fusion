@@ -6,17 +6,17 @@
 [![WebGL](https://img.shields.io/badge/3D%20Engine-Three.js%20r128-black?style=flat&logo=three.js)](https://threejs.org/)
 [![Qollab Project](https://img.shields.io/badge/Qollab-Live%20Showcase-FF00AA?style=flat)](https://qollab.xyz/u/Manikse/quantumfusion-trapped-ion-toka)
 
-**QuantumFusion** is an exploratory quantum-classical digital twin prototype designed to study boundary magnetic field trimming and tearing mode mitigation in next-generation tokamaks (ITER / SPARC class). By formulating the continuous electromagnetic boundary condition as an all-to-all Ising spin-glass Hamiltonian, the system leverages **IonQ's native trapped-ion all-to-all connectivity model** to execute QAOA (Quantum Approximate Optimization Algorithm) circuits with **zero SWAP routing overhead** and a **$4.33\times$ reduction in circuit depth** compared to planar nearest-neighbor architectures.
+**QuantumFusion** is an exploratory quantum-classical digital twin prototype designed to study boundary magnetic field trimming and tearing mode mitigation in next-generation tokamaks (ITER / SPARC class). By formulating the continuous electromagnetic boundary condition as an all-to-all Ising spin-glass Hamiltonian, the system leverages **IonQ's native trapped-ion all-to-all connectivity model** to execute QAOA (Quantum Approximate Optimization Algorithm) circuits with **zero SWAP routing overhead** and a **$4.33\times$ reduction in circuit depth** compared to planar nearest-neighbor architectures
 
-*Built for the Qollab × IonQ Global Quantum Hackathon 2026.*
+*Built for the Qollab × IonQ Global Quantum Hackathon 2026*
 
 ---
 
 ## 1. Problem Statement: Tokamak Plasma Disruptions
 
-In magnetic confinement fusion devices, sustaining a high-temperature plasma core ($> 10^8\text{ K}$) requires dynamic equilibrium against magnetohydrodynamic (MHD) instabilities. Resonant tearing modes ($m=2, n=1$ magnetic islands at rational safety factor $q=2$) cause magnetic field flutter, threatening thermal quench and rapid heat dumps onto divertor targets in $< 1\text{ ms}$ (with heat flux exceeding stationary engineering limits of $10\text{ MW/m}^2$).
+In magnetic confinement fusion devices, sustaining a high-temperature plasma core ($> 10^8\text{ K}$) requires dynamic equilibrium against magnetohydrodynamic (MHD) instabilities. Resonant tearing modes ($m=2, n=1$ magnetic islands at rational safety factor $q=2$) cause magnetic field flutter, threatening thermal quench and rapid heat dumps onto divertor targets in $< 1\text{ ms}$ (with heat flux exceeding stationary engineering limits of $10\text{ MW/m}^2$)
 
-External 3D Resonant Magnetic Perturbation (RMP) correction coils suppress islands by applying counter-phased helical magnetic fields. However, determining the optimal discrete coil polarity vector $s \in \{-1, +1\}^N$ against dynamic magnetic field drift across microsecond timescales is a non-convex combinatorial search problem over a discrete $2^N$ configuration space where classical combinatorial heuristics can stagnate in suboptimal local energy minima.
+External 3D Resonant Magnetic Perturbation (RMP) correction coils suppress islands by applying counter-phased helical magnetic fields. However, determining the optimal discrete coil polarity vector $s \in \{-1, +1\}^N$ against dynamic magnetic field drift across microsecond timescales is a non-convex combinatorial search problem over a discrete $2^N$ configuration space where classical combinatorial heuristics can stagnate in suboptimal local energy minima
 
 ---
 
